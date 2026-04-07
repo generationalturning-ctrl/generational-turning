@@ -93,26 +93,6 @@ export function PenConfigurator({
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxImage]);
 
-  // Auto-select black ink when step 3 is reached
-  useEffect(() => {
-    if (step !== 3) return;
-    const inkAddOns = filteredAddOns.filter(
-      (a) => a.addOnType === "fountainInk" || a.addOnType === "ballpointInk"
-    );
-    if (inkAddOns.length === 0) return;
-    // Find a black ink, fall back to first available ink
-    const blackInk =
-      inkAddOns.find((a) => a.name.toLowerCase().includes("black")) ??
-      inkAddOns[0];
-    setSelectedAddOns((prev) => {
-      const hasInk = prev.some(
-        ({ addOn }) => addOn.addOnType === "fountainInk" || addOn.addOnType === "ballpointInk"
-      );
-      if (hasInk) return prev;
-      return [...prev, { addOn: blackInk, quantity: 1 }];
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
 
   const filteredStyles = penStyles.filter(
     (s) => s.penType === penType && s.inStock
@@ -519,7 +499,7 @@ export function PenConfigurator({
                         {penType === "fountain" ? "Fountain Pen Ink" : "Ballpoint Ink"}
                       </p>
                       <p className="text-white/30 text-xs mb-3">
-                        Includes one ink refill. Choose a colour or leave as none.
+                        Add ink refills — $2.00 each. Select as many colours as you’d like.
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {filteredAddOns

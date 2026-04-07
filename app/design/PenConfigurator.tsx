@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { urlFor } from "@/lib/sanity";
 import { useCart } from "@/context/CartContext";
 
@@ -187,7 +188,6 @@ export function PenConfigurator({
       totalPrice,
     });
     setAdded(true);
-    setTimeout(() => setAdded(false), 2500);
   }
 
   // Progress bar
@@ -495,7 +495,7 @@ export function PenConfigurator({
                               {blank.name}
                             </p>
                             <p className="text-gold text-xs mt-0.5">
-                              +${blank.price.toFixed(2)}
+                              ${blank.price.toFixed(2)}
                             </p>
                           </div>
                         </button>
@@ -525,15 +525,16 @@ export function PenConfigurator({
                         {filteredAddOns
                           .filter((a) => a.addOnType !== "box")
                           .map((addOn) => {
-                            const qty = getAddOnQty(addOn._id);
+                            const selected = getAddOnQty(addOn._id) > 0;
                             return (
-                              <div
+                              <button
                                 key={addOn._id}
-                                className={`rounded-none overflow-hidden transition-all ${
-                                  qty > 0 ? "ring-2 ring-gold" : ""
+                                onClick={() => setAddOnQty(addOn, selected ? 0 : 1)}
+                                className={`rounded-none overflow-hidden text-left transition-all ${
+                                  selected ? "ring-2 ring-gold scale-[1.02]" : "hover:scale-[1.01]"
                                 }`}
                                 style={{
-                                  border: qty > 0 ? "1px solid #c9a84c" : "1px solid #2a2a2a",
+                                  border: selected ? "1px solid #c9a84c" : "1px solid #2a2a2a",
                                   background: "#141414",
                                 }}
                               >
@@ -555,22 +556,9 @@ export function PenConfigurator({
                                 </div>
                                 <div className="p-2">
                                   <p className="text-white text-xs font-medium leading-tight">{addOn.name}</p>
-                                  <p className="text-gold text-xs mt-0.5">+${addOn.price.toFixed(2)} each</p>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <button
-                                      onClick={() => setAddOnQty(addOn, qty - 1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors text-base leading-none"
-                                      style={{ border: "1px solid #3a3a3a" }}
-                                    >−</button>
-                                    <span className="text-white text-xs w-3 text-center">{qty}</span>
-                                    <button
-                                      onClick={() => setAddOnQty(addOn, qty + 1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors text-base leading-none"
-                                      style={{ border: "1px solid #3a3a3a" }}
-                                    >+</button>
-                                  </div>
+                                  <p className="text-gold text-xs mt-0.5">${addOn.price.toFixed(2)}</p>
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                       </div>
@@ -587,13 +575,14 @@ export function PenConfigurator({
                         {filteredAddOns
                           .filter((a) => a.addOnType === "box")
                           .map((addOn) => {
-                            const qty = getAddOnQty(addOn._id);
+                            const selected = getAddOnQty(addOn._id) > 0;
                             return (
-                              <div
+                              <button
                                 key={addOn._id}
-                                className={`rounded-none overflow-hidden transition-all ${qty > 0 ? "ring-2 ring-gold" : ""}`}
+                                onClick={() => setAddOnQty(addOn, selected ? 0 : 1)}
+                                className={`rounded-none overflow-hidden text-left transition-all ${selected ? "ring-2 ring-gold scale-[1.02]" : "hover:scale-[1.01]"}`}
                                 style={{
-                                  border: qty > 0 ? "1px solid #c9a84c" : "1px solid #2a2a2a",
+                                  border: selected ? "1px solid #c9a84c" : "1px solid #2a2a2a",
                                   background: "#141414",
                                 }}
                               >
@@ -615,22 +604,9 @@ export function PenConfigurator({
                                 </div>
                                 <div className="p-2">
                                   <p className="text-white text-xs font-medium leading-tight">{addOn.name}</p>
-                                  <p className="text-gold text-xs mt-0.5">+${addOn.price.toFixed(2)}</p>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <button
-                                      onClick={() => setAddOnQty(addOn, qty - 1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors text-base leading-none"
-                                      style={{ border: "1px solid #3a3a3a" }}
-                                    >−</button>
-                                    <span className="text-white text-xs w-3 text-center">{qty}</span>
-                                    <button
-                                      onClick={() => setAddOnQty(addOn, qty + 1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors text-base leading-none"
-                                      style={{ border: "1px solid #3a3a3a" }}
-                                    >+</button>
-                                  </div>
+                                  <p className="text-gold text-xs mt-0.5">${addOn.price.toFixed(2)}</p>
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                       </div>
@@ -695,17 +671,26 @@ export function PenConfigurator({
                   </p>
                 )}
 
-                <button
-                  onClick={handleAddToCart}
-                  disabled={!selectedColour || !selectedBlank}
-                  className={`w-full py-3 rounded-none font-semibold text-sm uppercase tracking-wider transition-all ${
-                    selectedColour && selectedBlank
-                      ? "bg-gold text-dark hover:bg-gold-light"
-                      : "bg-white/10 text-white/30 cursor-not-allowed"
-                  }`}
-                >
-                  {added ? "Added to Cart ✓" : "Add to Cart"}
-                </button>
+                {added ? (
+                  <Link
+                    href="/checkout"
+                    className="w-full py-3 rounded-none font-semibold text-sm uppercase tracking-wider transition-all bg-gold text-dark hover:bg-gold-light block text-center"
+                  >
+                    Go to Checkout →
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={!selectedColour || !selectedBlank}
+                    className={`w-full py-3 rounded-none font-semibold text-sm uppercase tracking-wider transition-all ${
+                      selectedColour && selectedBlank
+                        ? "bg-gold text-dark hover:bg-gold-light"
+                        : "bg-white/10 text-white/30 cursor-not-allowed"
+                    }`}
+                  >
+                    Add to Cart
+                  </button>
+                )}
               </div>
             </div>
           </div>

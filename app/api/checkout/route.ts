@@ -56,6 +56,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Server-side stock check
+    const customItems = items.filter((i) => i.type === "custom");
+    const galleryItems = items.filter((i) => i.type === "gallery");
+
+    if (customItems.length > 0) {
+      const penStyleIds = [...new Set(customItems.map((i) => i.penStyleId).filter(Boolean))];
+      const blankIds = [...new Set(customItems.map((i) => i.blankId).filter(Boolean))];
+      const addOnIds = [...new Set(customItems.flatMap((i) => (i.addOns ?? []).map((a: { id: string }) => a.id)).filter(Boolean))];
+
+      const [penStyles, blanks, addOns] = await Promise.all([
+        penStyleIds.length > 0 ? sanityRead.fetch(`*[_type == "penStyle" && _id in $ids]{ _id, inStock }`, { ids: penStyleIds }) : [],
+        blankIds.length > 0 ? sanityRead.fetch(`*[_type == "blank" && _id in $ids]{ _id, inStock }`, { ids: blankIds }) : [],
+        addOnIds.length > 0 ? sanityRead.fetch(`*[_type == "addOn" && _id in $ids]{ _id, inStock }`, { ids: addOnIds }) : [],
+      ]);
+
+      const outOfStock: string[] = [];
+      for (const ps of penStyles) { if (!ps.inStock) outOfStock.push("pen style"); }
+      for (const b of blanks) { if (!b.inStock) outOfStock.push("blank"); }
+      for (const a of addOns) { if (!a.inStock) outOfStock.push("add-on"); }
+
+      if (outOfStock.length > 0) {
+        return Response.json({ error: `Some items are no longer available: ${[...new Set(outOfStock)].join(", ")}. Please update your cart.`, outOfStock: true }, { status: 400 });
+      }
+    }
+
+    if (galleryItems.length > 0) {
+      const galleryIds = galleryItems.map((i) => i._id).filter(Boolean);
+      const available = await sanityRead.fetch(`*[_type == "galleryItem" && _id in $ids && sold != true]{ _id }`, { ids: galleryIds });
+      if (available.length !== galleryItems.length) {
+        return Response.json({ error: "One or more gallery items have already been sold. Please remove them from your cart.", outOfStock: true }, { status: 400 });
+      }
+    }
+
     const amount = items.reduce((sum: number, item: { type: string; totalPrice?: number; price?: number; quantity?: number }) => {
       const qty = item.type === "custom" ? (item.quantity ?? 1) : 1;
       const price = item.type === "custom" ? (item.totalPrice ?? 0) : (item.price ?? 0);

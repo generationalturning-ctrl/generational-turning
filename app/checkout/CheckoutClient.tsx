@@ -44,6 +44,8 @@ export function CheckoutClient() {
           if (data.freeThreshold) setFreeThreshold(data.freeThreshold);
         } else if (data.largeOrder) {
           setLargeOrder(true);
+        } else if (data.outOfStock) {
+          setError(data.error);
         } else {
           setError("Could not initialise payment. Please try again.");
         }

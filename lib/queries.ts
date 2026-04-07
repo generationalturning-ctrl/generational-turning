@@ -93,6 +93,8 @@ export async function getSiteSettings() {
     `*[_type == "siteSettings" && (_id == "siteSettings" || _id == "drafts.siteSettings")] | order(_updatedAt desc)[0] {
       galleryEnabled, inspirationEnabled,
       penTypeImages { fountain, ballpoint },
+      aboutPage { para1, para2, para3, para4 },
+      contactPage { subtitle, instagramHandle },
       shipping { tier1Fee, tier2Threshold, tier2Fee, freeThreshold }
     }`,
     {},

@@ -47,6 +47,57 @@ export const siteSettings = defineType({
       of: [{ type: "image", options: { hotspot: true } }],
     }),
     defineField({
+      name: "aboutPage",
+      title: "About Page",
+      type: "object",
+      fields: [
+        defineField({
+          name: "para1",
+          title: "Paragraph 1",
+          type: "text",
+          rows: 4,
+        }),
+        defineField({
+          name: "para2",
+          title: "Paragraph 2",
+          type: "text",
+          rows: 4,
+        }),
+        defineField({
+          name: "para3",
+          title: "Paragraph 3",
+          type: "text",
+          rows: 4,
+        }),
+        defineField({
+          name: "para4",
+          title: "Paragraph 4",
+          type: "text",
+          rows: 4,
+        }),
+      ],
+    }),
+    defineField({
+      name: "contactPage",
+      title: "Contact Page",
+      type: "object",
+      fields: [
+        defineField({
+          name: "subtitle",
+          title: "Subtitle",
+          description: "Text shown below the Contact heading.",
+          type: "string",
+        }),
+        defineField({
+          name: "instagramHandle",
+          title: "Instagram Handle",
+          description: "Without the @ symbol.",
+          type: "string",
+          initialValue: "generational_turning",
+        }),
+      ],
+    }),
+    defineField({
       name: "shipping",
       title: "Shipping Rates",
       type: "object",

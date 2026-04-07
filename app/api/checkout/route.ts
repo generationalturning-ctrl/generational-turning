@@ -13,7 +13,6 @@ const sanityRead = createClient({
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const MAX_ITEMS = 20;
-const MAX_UNIT_PRICE = 2000; // CAD — no single item should cost more than this
 const MAX_QUANTITY = 50;
 
 export async function POST(req: NextRequest) {
@@ -36,7 +35,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Too many items" }, { status: 400 });
     }
 
-    // Validate each item
+    // Validate item structure (not prices — those come from Sanity)
     for (const item of items) {
       if (!item || typeof item !== "object") {
         return Response.json({ error: "Invalid item" }, { status: 400 });
@@ -44,61 +43,98 @@ export async function POST(req: NextRequest) {
       if (!["custom", "gallery"].includes(item.type)) {
         return Response.json({ error: "Invalid item type" }, { status: 400 });
       }
-      const price = item.type === "custom" ? item.totalPrice : item.price;
-      if (typeof price !== "number" || price < 0 || price > MAX_UNIT_PRICE) {
-        return Response.json({ error: "Invalid price" }, { status: 400 });
-      }
       if (item.type === "custom") {
         const qty = item.quantity ?? 1;
         if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QUANTITY) {
           return Response.json({ error: "Invalid quantity" }, { status: 400 });
         }
+        if (!item.penStyleId || !item.blankId) {
+          return Response.json({ error: "Missing item details" }, { status: 400 });
+        }
       }
     }
 
-    // Server-side stock check
     const customItems = items.filter((i) => i.type === "custom");
     const galleryItems = items.filter((i) => i.type === "gallery");
 
-    if (customItems.length > 0) {
-      const penStyleIds = [...new Set(customItems.map((i) => i.penStyleId).filter(Boolean))];
-      const blankIds = [...new Set(customItems.map((i) => i.blankId).filter(Boolean))];
-      const addOnIds = [...new Set(customItems.flatMap((i) => (i.addOns ?? []).map((a: { id: string }) => a.id)).filter(Boolean))];
+    // Collect all IDs needed
+    const penStyleIds = [...new Set(customItems.map((i) => i.penStyleId).filter(Boolean))];
+    const blankIds = [...new Set(customItems.map((i) => i.blankId).filter(Boolean))];
+    const addOnIds = [...new Set(
+      customItems.flatMap((i) => (i.addOns ?? []).map((a: { id: string }) => a.id)).filter(Boolean)
+    )];
+    const galleryIds = galleryItems.map((i) => i._id).filter(Boolean);
 
-      const [penStyles, blanks, addOns] = await Promise.all([
-        penStyleIds.length > 0 ? sanityRead.fetch(`*[_type == "penStyle" && _id in $ids]{ _id, inStock }`, { ids: penStyleIds }) : [],
-        blankIds.length > 0 ? sanityRead.fetch(`*[_type == "blank" && _id in $ids]{ _id, inStock }`, { ids: blankIds }) : [],
-        addOnIds.length > 0 ? sanityRead.fetch(`*[_type == "addOn" && _id in $ids]{ _id, inStock }`, { ids: addOnIds }) : [],
-      ]);
+    // Fetch authoritative data from Sanity — server determines all prices
+    const [penStyles, blanks, addOns, galleryDocs, settings] = await Promise.all([
+      penStyleIds.length > 0
+        ? sanityRead.fetch(`*[_type == "penStyle" && _id in $ids]{ _id, basePrice, inStock }`, { ids: penStyleIds })
+        : [],
+      blankIds.length > 0
+        ? sanityRead.fetch(`*[_type == "blank" && _id in $ids]{ _id, price, inStock }`, { ids: blankIds })
+        : [],
+      addOnIds.length > 0
+        ? sanityRead.fetch(`*[_type == "addOn" && _id in $ids]{ _id, price, inStock }`, { ids: addOnIds })
+        : [],
+      galleryIds.length > 0
+        ? sanityRead.fetch(`*[_type == "galleryItem" && _id in $ids && sold != true]{ _id, price }`, { ids: galleryIds })
+        : [],
+      sanityRead.fetch(`*[_type == "siteSettings" && _id == "siteSettings"][0].shipping`),
+    ]);
 
-      const outOfStock: string[] = [];
-      for (const ps of penStyles) { if (!ps.inStock) outOfStock.push("pen style"); }
-      for (const b of blanks) { if (!b.inStock) outOfStock.push("blank"); }
-      for (const a of addOns) { if (!a.inStock) outOfStock.push("add-on"); }
+    // Build lookup maps
+    const penStyleMap = new Map(penStyles.map((p: { _id: string; basePrice: number; inStock: boolean }) => [p._id, p]));
+    const blankMap = new Map(blanks.map((b: { _id: string; price: number; inStock: boolean }) => [b._id, b]));
+    const addOnMap = new Map(addOns.map((a: { _id: string; price: number; inStock: boolean }) => [a._id, a]));
+    const galleryMap = new Map(galleryDocs.map((g: { _id: string; price: number }) => [g._id, g]));
 
-      if (outOfStock.length > 0) {
-        return Response.json({ error: `Some items are no longer available: ${[...new Set(outOfStock)].join(", ")}. Please update your cart.`, outOfStock: true }, { status: 400 });
+    // Check stock and compute authoritative total — client-supplied prices are ignored
+    const outOfStock: string[] = [];
+    let amount = 0;
+
+    for (const item of customItems) {
+      const penStyle = penStyleMap.get(item.penStyleId) as { _id: string; basePrice: number; inStock: boolean } | undefined;
+      const blank = blankMap.get(item.blankId) as { _id: string; price: number; inStock: boolean } | undefined;
+
+      if (!penStyle) return Response.json({ error: "Unknown pen style" }, { status: 400 });
+      if (!blank) return Response.json({ error: "Unknown blank" }, { status: 400 });
+      if (!penStyle.inStock) outOfStock.push("pen style");
+      if (!blank.inStock) outOfStock.push("blank");
+
+      // Compute price server-side
+      let itemPrice = (penStyle.basePrice ?? 0) + (blank.price ?? 0);
+
+      for (const addOn of item.addOns ?? []) {
+        const addOnData = addOnMap.get(addOn.id) as { _id: string; price: number; inStock: boolean } | undefined;
+        if (addOnData) {
+          if (!addOnData.inStock) outOfStock.push("add-on");
+          const addOnQty = Math.max(1, Math.min(99, parseInt(addOn.quantity ?? 1)));
+          itemPrice += (addOnData.price ?? 0) * addOnQty;
+        }
       }
+
+      amount += itemPrice * (item.quantity ?? 1);
     }
 
-    if (galleryItems.length > 0) {
-      const galleryIds = galleryItems.map((i) => i._id).filter(Boolean);
-      const available = await sanityRead.fetch(`*[_type == "galleryItem" && _id in $ids && sold != true]{ _id }`, { ids: galleryIds });
-      if (available.length !== galleryItems.length) {
-        return Response.json({ error: "One or more gallery items have already been sold. Please remove them from your cart.", outOfStock: true }, { status: 400 });
+    for (const item of galleryItems) {
+      const galleryItem = galleryMap.get(item._id) as { _id: string; price: number } | undefined;
+      if (!galleryItem) {
+        return Response.json({
+          error: "One or more gallery items are no longer available.",
+          outOfStock: true,
+        }, { status: 400 });
       }
+      amount += galleryItem.price ?? 0;
     }
 
-    const amount = items.reduce((sum: number, item: { type: string; totalPrice?: number; price?: number; quantity?: number }) => {
-      const qty = item.type === "custom" ? (item.quantity ?? 1) : 1;
-      const price = item.type === "custom" ? (item.totalPrice ?? 0) : (item.price ?? 0);
-      return sum + price * qty;
-    }, 0);
+    if (outOfStock.length > 0) {
+      return Response.json({
+        error: `Some items are no longer available: ${[...new Set(outOfStock)].join(", ")}. Please update your cart.`,
+        outOfStock: true,
+      }, { status: 400 });
+    }
 
-    // Fetch shipping settings from Sanity (fall back to hardcoded defaults)
-    const settings = await sanityRead.fetch(
-      `*[_type == "siteSettings" && _id == "siteSettings"][0].shipping`
-    );
+    // Shipping from Sanity
     const tier1Fee = settings?.tier1Fee ?? 12;
     const tier2Threshold = settings?.tier2Threshold ?? 100;
     const tier2Fee = settings?.tier2Fee ?? 15;
@@ -115,7 +151,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Order total too low" }, { status: 400 });
     }
 
-    if (amountInCents > 500_000) { // $5,000 CAD hard cap
+    if (amountInCents > 500_000) {
       return Response.json({ error: "Order total too high", largeOrder: true }, { status: 400 });
     }
 

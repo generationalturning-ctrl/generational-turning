@@ -89,8 +89,7 @@ export function ContactForm() {
 
       {status === "error" && (
         <p className="text-red-400 text-sm">
-          Something went wrong. Please email me directly at
-          generationalturning@gmail.com
+          Something went wrong. Please try again or use the email on the contact page.
         </p>
       )}
 

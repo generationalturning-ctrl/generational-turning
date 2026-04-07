@@ -204,6 +204,14 @@ export function CheckoutClient() {
           All prices in Canadian dollars. Custom pens are made to order after
           payment is received.
         </p>
+        <div
+          className="mt-4 p-4"
+          style={{ background: "#141414", border: "1px solid #2a2a2a" }}
+        >
+          <p className="text-white/60 text-sm leading-relaxed">
+            <span className="text-gold font-medium">Lead time:</span> Please allow <strong className="text-white">1–2 months</strong> for your pen to be handcrafted and shipped. You will receive a confirmation email now and a shipping notification when it&apos;s on its way.
+          </p>
+        </div>
 
         {total >= 5000 && (
           <div

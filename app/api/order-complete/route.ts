@@ -3,6 +3,7 @@ import { createClient } from "@sanity/client";
 import { Resend } from "resend";
 import { NextRequest } from "next/server";
 import { rateLimit, getIp } from "@/lib/rateLimit";
+import { customerConfirmationEmail } from "@/lib/emails";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -234,22 +235,28 @@ export async function POST(req: NextRequest) {
       status: "received",
     });
 
-    // Send email via Resend
+    // Send emails via Resend
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       const resend = new Resend(resendKey);
-      const { data, error: resendError } = await resend.emails.send({
+
+      // Notification to you
+      await resend.emails.send({
         from: "orders@generationalturning.ca",
         to: "generationalturning@gmail.com",
         replyTo: email,
         subject: `New Order from ${name} — $${total.toFixed(2)} CAD`,
         html: orderEmailHtml(name, email, items, total, paymentIntentId, address, consent),
       });
-      if (resendError) {
-        console.error("Resend error:", resendError);
-      } else {
-        console.log("Email sent:", data?.id);
-      }
+
+      // Confirmation to customer
+      await resend.emails.send({
+        from: "orders@generationalturning.ca",
+        to: email,
+        replyTo: "generationalturning@gmail.com",
+        subject: "Your Generational Turning order is confirmed",
+        html: customerConfirmationEmail(name, items, total, address),
+      });
     }
 
     return Response.json({ ok: true });

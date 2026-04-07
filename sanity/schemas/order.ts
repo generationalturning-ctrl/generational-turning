@@ -93,6 +93,13 @@ export const order = defineType({
       initialValue: "received",
     }),
     defineField({
+      name: "shippedEmailSent",
+      title: "Shipped Email Sent",
+      type: "boolean",
+      readOnly: true,
+      hidden: true,
+    }),
+    defineField({
       name: "notes",
       title: "Internal Notes",
       type: "text",

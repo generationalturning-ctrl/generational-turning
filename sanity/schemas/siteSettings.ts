@@ -6,6 +6,19 @@ export const siteSettings = defineType({
   type: "document",
   fields: [
     defineField({
+      name: "vacationMode",
+      title: "Vacation Mode",
+      description: "Turn on to show a prominent vacation notice on the checkout page.",
+      type: "boolean",
+      initialValue: false,
+    }),
+    defineField({
+      name: "vacationReturnDate",
+      title: "Vacation Return Date",
+      description: "The date you will be back (e.g. May 15, 2025). Shown in the checkout notice when Vacation Mode is on.",
+      type: "string",
+    }),
+    defineField({
       name: "galleryEnabled",
       title: "Gallery Page Enabled",
       description: "Turn off to show a 'coming soon' message instead of the gallery.",

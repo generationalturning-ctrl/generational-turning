@@ -15,7 +15,13 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
-export function CheckoutClient() {
+export function CheckoutClient({
+  vacationMode = false,
+  vacationReturnDate = "",
+}: {
+  vacationMode?: boolean;
+  vacationReturnDate?: string;
+}) {
   const { items, total } = useCart();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [shipping, setShipping] = useState<number | null>(null);
@@ -129,7 +135,31 @@ export function CheckoutClient() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+    <>
+      {vacationMode && (
+        <div
+          className="mb-10 rounded-none p-6"
+          style={{ background: "#1a0f00", border: "2px solid #c9a84c" }}
+        >
+          <p className="text-gold text-xs uppercase tracking-[0.25em] mb-2 font-semibold">
+            Important Notice
+          </p>
+          <p className="font-serif text-white text-xl mb-3">
+            I am currently away on vacation
+          </p>
+          <p className="text-white/80 text-sm leading-relaxed">
+            I will be back on{" "}
+            <strong className="text-gold">
+              {vacationReturnDate || "a future date"}
+            </strong>
+            . You are welcome to place your order now, but please note that it
+            will not be processed or shipped until after my return. Expected
+            delivery will be later than usual — thank you for your patience and
+            understanding.
+          </p>
+        </div>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
       {/* Order Summary */}
       <div>
         <h2 className="font-serif text-gold text-xl mb-6">Order Summary</h2>
@@ -259,6 +289,7 @@ export function CheckoutClient() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

@@ -92,6 +92,7 @@ export async function getSiteSettings() {
   return serverClient.fetch(
     `*[_type == "siteSettings" && (_id == "siteSettings" || _id == "drafts.siteSettings")] | order(_updatedAt desc)[0] {
       galleryEnabled, inspirationEnabled,
+      vacationMode, vacationReturnDate,
       penTypeImages { fountain, ballpoint },
       aboutPage { para1, para2, para3, para4 },
       contactPage { subtitle, instagramHandle },

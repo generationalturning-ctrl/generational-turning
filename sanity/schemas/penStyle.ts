@@ -108,6 +108,12 @@ export const penStyle = defineType({
               title: "Supplier URL (for stock checking)",
               type: "url",
             }),
+            defineField({
+              name: "inStock",
+              title: "In Stock",
+              type: "boolean",
+              initialValue: true,
+            }),
           ],
           preview: {
             select: { title: "colour", media: "images.0" },
